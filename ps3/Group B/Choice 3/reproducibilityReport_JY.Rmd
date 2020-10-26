@@ -1,0 +1,245 @@
+---
+title: "Reproducibility Report: Group B Choice 3"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+-------
+
+For this exercise, please try to reproduce the results from Experiment 2 of the associated paper (de la Fuente, Santiago, Roman, Dumitrache, & Casasanto, 2014). The PDF of the paper is included in the same folder as this Rmd file. 
+
+#### Methods summary: 
+
+Researchers tested the question of whether temporal focus differs between Moroccan and Spanish cultures, hypothesizing that Moroccans are more past-focused, whereas Spaniards are more future-focused. Two groups of participants ($N = 40$ Moroccan and $N=40$ Spanish) completed a temporal-focus questionnaire that contained questions about past-focused ("PAST") and future-focused ("FUTURE") topics. In response to each question, participants provided a rating on a 5-point Likert scale on which lower scores indicated less agreement and higher scores indicated greater agreement. The authors then performed a mixed-design ANOVA with agreement score as the dependent variable, group (Moroccan or Spanish, between-subjects) as the fixed-effects factor, and temporal focus (past or future, within-subjects) as the random effects factor. In addition, the authors performed unpaired two-sample t-tests to determine whether there was a significant difference between the two groups in agreement scores for PAST questions, and whether there was a significant difference in scores for FUTURE questions.
+
+------
+
+#### Target outcomes: 
+
+Below is the specific result you will attempt to reproduce (quoted directly from the results section of Experiment 2):
+
+> According to a mixed analysis of variance (ANOVA) with group (Spanish vs. Moroccan) as a between-subjects factor and temporal focus (past vs. future) as a within-subjectS factor, temporal focus differed significantly between Spaniards and Moroccans, as indicated by a significant interaction of temporal focus and group, F(1, 78) = 19.12, p = .001, ηp2 = .20 (Fig. 2). Moroccans showed greater agreement with past-focused statements than Spaniards did, t(78) = 4.04, p = .001, and Spaniards showed greater agreement with future-focused statements than Moroccans did, t(78) = −3.32, p = .001. (de la Fuente et al., 2014, p. 1685).
+
+------
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+# Step 1: Load packages
+
+```{r}
+library(tidyverse) # for data munging
+library(knitr) # for kable table formating
+library(haven) # import and export 'SPSS', 'Stata' and 'SAS' Files
+library(readxl) # import excel files
+
+# #optional packages/functions:
+# library(afex) # anova functions
+# library(ez) # anova functions 2
+# library(scales) # for plotting
+# std.err <- function(x) sd(x)/sqrt(length(x)) # standard error
+```
+
+# Step 2: Load data
+
+```{r}
+# Just Experiment 2
+data_path <- 'data/DeLaFuenteEtAl_2014_RawData.xls'
+d <- read_excel(data_path, sheet=3)
+```
+
+# Step 3: Tidy data
+
+```{r}
+
+colnames(d)
+# item 1-11 is PAST
+# item 12-21 is FUTURE
+
+d %>%
+  group_by(participant, group) %>%
+  summarize(n())
+# there are missing items for Moroccan Participant 24 (17 rows only / 21 possible rows)
+# there are missing items for Spanish Participant 24 (17 rows only / 21 possible rows)
+# there are missing items for Moroccan Participant 25 (4 rows only / 21 possible rows)
+# there are missing items for Spanish Participant 25 (4 rows only / 21 possible rows)
+# there are extra items for Moroccan Participant 40 (42 rows / 21 possible rows)
+# there are extra items for Spanish Participant 40 (42 rows / 21 possible rows)
+
+# Because this seems to be a data entry error and there is no way for me to know which answer correctly corresponds to which participant, I will exclude these 6 participants altogether.
+
+d_tidying <- filter(d, participant != 24 & participant != 25 & participant != 40) 
+
+d_tidying %>%
+  group_by(participant, group) %>%
+  summarize(n())
+
+d_tidying <- d_tidying %>%
+  dplyr::rename(agreement=`Agreement (0=complete disagreement; 5=complete agreement)`) %>%
+  pivot_wider(names_from=item,
+              values_from=agreement) %>%
+  dplyr::select(-c(subscale)) %>%
+  dplyr::rename(past1=`1. Para mí son muy importantes las tradiciones y las antiguas costumbres`,
+                past2=`2. Los jóvenes deben conservar las tradiciones`,
+                past3=`3. Creo que las personas eran más felices hace unas décadas que en la actualidad`,
+                past4=`4. La juventud de hoy en día necesita mantener los valores de sus padres y sus abuelos`,
+                past5=`5. Los ancianos saben más que los jóvenes`,
+                past6=`6. El modo correcto de hacer las cosas es el modo en que me las enseñaron`,
+                past7=`7. Me cuesta aceptar los cambios culturales que se está produciendo  en los últimos años`,
+                past8=`8. La forma de divertirse de los jóvenes de antes era mejor que la actual`,
+                past9=`9. La forma de vivir tradicional es mejor que la moderna`,
+                past10=`10. Considero que los avances tecnológicos y económicos de los últimos años perjudican a la sociedad`,
+                past11=`11. Se ha perdido el respeto a las tradiciones y eso es malo`,
+                future1=`12.Entiendo que las creencias culturales van cambiando con el tiempo y que debemos adaptarnos a esos cambios`,
+                future2=`13. Los valores y creencias de mi cultura se van modernizando y eso es bueno`,
+                future3=`14. Veo muy positiva la globalización`,
+                future4=`15.Los avances en tecnología y en economía son buenos para la sociedad`,
+                future5=`16. Los valores y creencias de los jóvenes deben ser diferentes de los de sus mayores`,
+                future6=`17. Para los jóvenes no es importante aprender de sus mayores`,
+                future7=`18. Los jóvenes deben pensar en el futuro, no en el pasado`,
+                future8=`19. Las tradiciones no son útiles para la sociedad del presente y del futuro`,
+                future9=`20. Es importante innovar y adaptarse a los nuevos cambios`,
+                future10=`21. Los cambios sociales y culturales harán más feliz a la gente`)
+
+d_tidying <- d_tidying %>%
+  rowwise() %>%
+  mutate(past_comp=mean(c(past1,
+                          past2,
+                          past3,
+                          past4,
+                          past5,
+                          past6,
+                          past7,
+                          past8,
+                          past9,
+                          past10,
+                          past11)))
+         
+  d_tidying <- d_tidying %>%
+    rowwise() %>%
+    mutate(future_comp=mean(c(future1,
+                              future2,
+                              future3,
+                              future4,
+                              future5,
+                              future6,
+                              future7,
+                              future8,
+                              future9,
+                              future10)))
+  
+d_tidying
+```
+
+# Step 4: Run analysis
+
+## Pre-processing
+
+```{r}
+d_tidying <- d_tidying %>%
+  dplyr::select(c(group, 
+                  participant, 
+                  past_comp, 
+                  future_comp))
+
+d_moroccanpast <- d_tidying %>%
+  filter(group=="Moroccan") %>%
+  dplyr::select(c(group, 
+                  participant, 
+                  past_comp)) %>%
+  drop_na(past_comp)
+d_moroccanpast
+
+d_spanishpast <- d_tidying %>%
+  filter(group=="young Spaniard") %>%
+  dplyr::select(c(group, 
+                  participant, 
+                  past_comp)) %>%
+  drop_na(past_comp)
+d_spanishpast
+
+d_moroccanfuture <- d_tidying %>%
+  filter(group=="Moroccan") %>%
+  dplyr::select(c(group, 
+                  participant, 
+                  future_comp)) %>%
+  drop_na(future_comp)
+d_moroccanfuture
+
+d_spanishfuture <- d_tidying %>%
+  filter(group=="young Spaniard") %>%
+  dplyr::select(c(group, 
+                  participant, 
+                  future_comp)) %>%
+  drop_na(future_comp)
+d_spanishfuture
+
+d_moroccan <- inner_join(d_moroccanpast, 
+                         d_moroccanfuture)
+
+head(d_moroccanpast)
+head(d_moroccanfuture)
+head(d_moroccan)
+
+d_spanish <- inner_join(d_spanishpast,
+                         d_spanishfuture)
+
+
+head(d_spanishpast)
+head(d_spanishfuture)
+head(d_spanish)
+
+d_tidied <- bind_rows(d_moroccan, d_spanish)
+d_tidied
+```
+
+## Descriptive statistics
+
+Try to recreate Figure 2 (fig2.png, also included in the same folder as this Rmd file):
+
+```{r}
+
+```
+
+## Inferential statistics
+
+> According to a mixed analysis of variance (ANOVA) with group (Spanish vs. Moroccan) as a between-subjects factor and temporal focus (past vs. future) as a within-subjects factor, temporal focus differed significantly between Spaniards and Moroccans, as indicated by a significant interaction of temporal focus and group, F(1, 78) = 19.12, p = .001, ηp2 = .20 (Fig. 2).
+
+```{r}
+# reproduce the above results here
+
+```
+
+> Moroccans showed greater agreement with past-focused statements than Spaniards did, t(78) = 4.04, p = .001, 
+
+```{r}
+# reproduce the above results here
+
+```
+
+> and Spaniards showed greater agreement with future-focused statements than Moroccans did, t(78) = −3.32, p = .001.(de la Fuente et al., 2014, p. 1685)
+
+```{r}
+# reproduce the above results here
+
+```
+
+# Step 5: Reflection
+
+Were you able to reproduce the results you attempted to reproduce? If not, what part(s) were you unable to reproduce?
+
+> No, I was unable to reproduce the descriptive and inferential statistics.
+
+How difficult was it to reproduce your results? 
+
+> It was very difficult to reproduce these results and I spent more than 3 hours trying. I worked alone on this assignment.
+
+What aspects made it difficult? What aspects made it easy?
+
+> **Aspects that made it difficult**: The raw data was in long form so I spent a lot of time tidying. There were errors in data entry with multiple participants sharing the same participant ID number (PPID 40). Some participants did not answer all items in their scales (PPID 24, 25). In their paper, the authors did not acknowledge these errors nor say who they excluded in analysis. The authors also did not compute mean scores.
+> **Aspects that made it easy**: The study design was easy to follow.
